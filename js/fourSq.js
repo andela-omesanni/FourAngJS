@@ -127,17 +127,6 @@
 				center: new google.maps.LatLng(6.4531, 3.3958)
 			  };
 			  
-			  var input = document.getElementById('start'), inputTwo = document.getElementById('end');
-			  
-			  var defaultBounds = new google.maps.LatLngBounds(new google.maps.LatLng(8.0000, 10.0000),
-                                                                new google.maps.LatLng(8.0000, 10.0000));
-			  var placeOptions = {
-				  types: ['(cities)'],
-				 componentRestrictions: {country: "ng"},
-				 bounds: defaultBounds
-			  };
-			  var searchBox = new google.maps.places.SearchBox(input, placeOptions );
-			  var searchBoxx = new google.maps.places.SearchBox(inputTwo, placeOptions);
 		
 			  venues.map = new google.maps.Map(document.getElementById('map-canvas'), mapOptions);
 		
