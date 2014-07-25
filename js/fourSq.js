@@ -27,13 +27,16 @@
         };
     
         this.getVenues = function() {
-            if (!venues.spinner) venues.spinner = true;
-            this.start = "", this.end = "";
-            
             $scope.directPanel = false;
             this.clickedDiv = -1;
+
+            if (!venues.spinner) {
+                venues.spinner = true;
+            }    
             
-            if(this.map) this.resizeMap();
+            if(this.map) {
+                this.resizeMap();
+            }
             
             var config = {
                 params: {
@@ -43,30 +46,18 @@
                 }
             };
             
-            var venuesCallBack = function(resp) {
+            $http.jsonp(fourAPI, config).success(venues.venuesCallBack);
+        };
+    
+        this.venuesCallBack = function(resp) {
                 venues.results = resp.response.groups[0].items;
                 
                 if(venues.results.length > 0 ) {
                      venues.spinner = false;
                      venues.show = true; 
                      $.each(venues.results, function(index, result){ 
-                        var addr = result.venue.location.address, city = result.venue.location.city
-                        
-                        //check for undefined error inconsistency with object values that are needed
-                        if(result.venue.price && typeof  result.venue.price.message === "undefined"){
-                            result.venue.price.message ="n/a";
-                        }
-                        
-                        if (typeof addr === "undefined" && typeof city === "undefined")
-                            result.venue.location.address = "Lagos";
-                        if (typeof addr === "undefined" && typeof city !== "undefined")
-                            result.venue.location.address = city;
-                        if (typeof addr !== "undefined" && typeof city !== "undefined")
-                             result.venue.location.address = addr + ", " + city; 
-            
-                        if (typeof result.venue.rating === "undefined") 
-                            result.venue.rating = "n/a";
-                        
+                        venues.validateResults(result);
+
                         var photoEndPt = "https://api.foursquare.com/v2/venues/" + result.venue.id + "/photos";
                         var photoConfig =  { 
                             params: {
@@ -75,49 +66,69 @@
                                  v: "20140714", callback: "JSON_CALLBACK" 
                             }
                         };
-                        var photoUrl = "", photoSize = "150x130";
                         
-                        var photoCallBack = function(data) { //callback function
-                            
-                            if (typeof data.response.photos !== 'undefined'){ 
-                                var dataRes = data.response.photos.items[0];
-                             if(dataRes) {  
-                                if (typeof dataRes.prefix !== "undefined" && typeof dataRes.suffix !== "undefined") { 
-                                    result.venue.photoUrl = dataRes.prefix + photoSize + dataRes.suffix;
-                                }
-                             }
-                            }
-                            if( typeof data.response.photos.items[0] === 'undefined' || typeof data.response.photos=== 'undefined' ) { 
-                                
-                                    switch (venues.section) {
-                                        case "food":
-                                           result.venue.photoUrl = "img/plate.png"; 
-                                           break;
-                                        case "drinks":
-                                           result.venue.photoUrl = "img/cocktails.png";
-                                           break;
-                                        case "shops":
-                                           result.venue.photoUrl = "img/basket.png"; 
-                                           break;
-                                        case "arts":
-                                           result.venue.photoUrl = "img/theatre.png";
-                                           break;
-                                        default:
-                                           result.venue.photoUrl = "img/beach.png";
-                                    }
-                            }
-                              
-                        };
-                        
-                        $http.jsonp(photoEndPt, photoConfig).success(photoCallBack);
+                        $http.jsonp(photoEndPt, photoConfig).success(function(data){
+                            return venues.photoCallBack(index, data);
+                        });
                     });
-               } else { venues.show = false; }
-            };
-            
-            $http.jsonp(fourAPI, config).success(venuesCallBack);
+                } else { venues.show = false; }
         };
         
-        
+        //validates results retrieved from venues endpoint
+        this.validateResults = function(result) {
+              var addr = result.venue.location.address, city = result.venue.location.city;
+
+              //check for undefined error inconsistency with object values that are needed
+              if(result.venue.price && typeof  result.venue.price.message === "undefined"){
+                  result.venue.price.message ="n/a";
+              }
+              
+              if (typeof addr === "undefined" && typeof city === "undefined")
+                  result.venue.location.address = "Lagos";
+              if (typeof addr === "undefined" && typeof city !== "undefined")
+                  result.venue.location.address = city;
+              if (typeof addr !== "undefined" && typeof city !== "undefined")
+                   result.venue.location.address = addr + ", " + city; 
+
+              if (typeof result.venue.rating === "undefined") {
+                  result.venue.rating = "n/a";
+              }
+        };
+     
+        this.photoCallBack = function(index, data) { //callback function for retrieving photos of venues
+            var photoUrl = "";
+            var photoSize = "150x130";
+                     
+            if (typeof data.response.photos !== 'undefined'){ 
+              var dataRes = data.response.photos.items[0];
+             if(dataRes) {  
+              if (typeof dataRes.prefix !== "undefined" && typeof dataRes.suffix !== "undefined") {
+                photoUrl = dataRes.prefix + photoSize + dataRes.suffix;
+                venues.results[index].venue.photoUrl = photoUrl;
+              }
+             }
+            }
+            if( typeof data.response.photos.items[0] === 'undefined' || typeof data.response.photos=== 'undefined' ) { 
+              console.log(venues.section);
+              switch (venues.section) {
+                case "food":
+                   venues.results[index].venue.photoUrl = "img/plate.png"; 
+                   break;
+                case "drinks":
+                   venues.results[index].venue.photoUrl = "img/cocktails.png";
+                   break;
+                case "shops":
+                   venues.results[index].venue.photoUrl = "img/basket.png"; 
+                   break;
+                case "arts":
+                   venues.results[index].venue.photoUrl = "img/theatre.png";
+                   break;
+                default:
+                   venues.results[index].venue.photoUrl = "img/beach.png";
+              }
+            }
+        };
+               
         this.initialize = function() {  //initializes map once the page loads
               venues.directionsDisplay = new google.maps.DirectionsRenderer({draggable: true});  //object for rendering route lanes on the mao
               venues.geocoder = new google.maps.Geocoder();  //object for converting address to co-ordinates on the map
@@ -163,20 +174,25 @@
             provideRouteAlternatives: true,
             travelMode: google.maps.TravelMode.DRIVING
           };
+      
           venues.directionsService.route(request, function(response, status) {
             if (status == google.maps.DirectionsStatus.OK) { 
-              $scope.$apply(function(){$scope.directPanel = true;}) 
-              venues.directionsDisplay.setMap(venues.map);
-              venues.directionsDisplay.setDirections(response);
+               $scope.$apply(function(){
+                  $scope.directPanel = true;
+               }) 
+         
+               venues.directionsDisplay.setMap(venues.map);
+               venues.directionsDisplay.setDirections(response);
             }
             else { 
-               $scope.$apply(function(){$scope.directPanel = false; });
+               $scope.$apply(function(){
+                 $scope.directPanel = false; 
+               });
                venues.resizeMap();
                alert("Google couldn't find a route between the addresses");
             }
-         });
-       };
-    
+          });
+        };
         
         //gets the address in string format of a given co-ordinate position
         this.searchPlace = function (pos) {
@@ -214,15 +230,15 @@
              }
         };
         
-        this.resizeMap = function() { 
-           if (this.directionsDisplay)
-             this.directionsDisplay.setMap(null); //remove previous direction route lanes and markers
-             this.map.setCenter(new google.maps.LatLng(6.4531, 3.3958)); 
+        this.resizeMap = function() { //resolves issues with when map's display property was set to none in css
+           if (this.directionsDisplay) {
+              this.directionsDisplay.setMap(null); //remove previous direction route lanes and markers
+            }
+           
+            this.map.setCenter(new google.maps.LatLng(6.4531, 3.3958)); //centers the map to the co-ordinates of lagos
         };
         
         this.getVenues();
         google.maps.event.addDomListener(window, 'load', this.initialize); //loads maps when a new page loads
-    }]);
-    
-    
+     }]);
 })();
