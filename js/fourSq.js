@@ -109,7 +109,6 @@
              }
             }
             if( typeof data.response.photos.items[0] === 'undefined' || typeof data.response.photos=== 'undefined' ) { 
-              console.log(venues.section);
               switch (venues.section) {
                 case "food":
                    venues.results[index].venue.photoUrl = "img/plate.png"; 
